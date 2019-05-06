@@ -1,0 +1,261 @@
+#BIEN GRASS SUBSETTING
+#5/6/2019
+#Richness Data Separation
+summary(BIENC4$CellID)
+C4Richness <- data.frame(table(BIENC4$CellID))
+colnames(C4Richness)[colnames(C4Richness)=="Var1"] <- "CellID"
+colnames(C4Richness)[colnames(C4Richness)=="Freq"] <- "Richness"
+C4Richness$CellID <- as.character(C4Richness$CellID)
+BIENrichness$CellID <- as.character(BIENrichness$CellID)
+BIENj.1 <- full_join(BIENrichness, C4Richness, by="CellID")
+colnames(BIENj.1)[colnames(BIENj.1)=="Richness.x"] <- "Richness"
+colnames(BIENj.1)[colnames(BIENj.1)=="Richness.y"] <- "C4Richness"
+BIENj.1[is.na(BIENj.1)] <- 0
+
+summary(BIENC3$CellID)
+C3Richness <- data.frame(table(BIENC3$CellID))
+colnames(C3Richness)[colnames(C3Richness)=="Var1"] <- "CellID"
+colnames(C3Richness)[colnames(C3Richness)=="Freq"] <- "Richness"
+C3Richness$CellID <- as.character(C3Richness$CellID)
+BIENrichness$CellID <- as.character(BIENrichness$CellID)
+BIENRichJoin <- full_join(BIENj.1, C3Richness, by="CellID")
+colnames(BIENRichJoin)[colnames(BIENRichJoin)=="Richness.x"] <- "Richness"
+colnames(BIENRichJoin)[colnames(BIENRichJoin)=="Richness.y"] <- "C3Richness"
+BIENRichJoin[is.na(BIENRichJoin)] <- 0
+for(i in 1:nrow(BIENRichJoin)) {
+  BIENRichJoin$RichSum[i] <- sum(BIENRichJoin$C4Richness[i], BIENRichJoin$C3Richness[i])
+  BIENRichJoin$SumRich[i] <- BIENRichJoin$RichSum[i]*-1
+}  
+
+#Grass Ratio (By type)
+nC3 <- nrow(BIENC3)
+nC4 <- nrow(BIENC4)
+C3Richness$Percentage <- C3Richness$Richness/nC3*100
+C4Richness$Percentage <- C4Richness$Richness/nC4*100
+C3Richness$Type <- "C3"
+C4Richness$Type <- "C4"
+ALLRichness <- bind_rows(C3Richness,C4Richness)
+
+#Grass?
+Grass <- is.element(sepnames$Genus, allgrass$Genus)
+sepnames$Grass <- Grass
+BIENGRASS <- subset(sepnames, Grass == TRUE)
+
+#Photosynthetic Type 
+sepnames <- separate(BIENSpecies, Species, c("Genus", "Speciesname"))
+sepnames$Type <- ifelse(sepnames$Genus == "Aristida"|sepnames$Genus == "Stipagrostis"|sepnames$Genus=="Chloridoideae"|sepnames$Genus=="Centropodia"|sepnames$Genus=="Eriachne"|sepnames$Genus=="Tristachyideae"|sepnames$Genus=="Andropogoneae"|sepnames$Genus=="Reynaudia"|sepnames$Genus=="Axonopus"|sepnames$Genus=="Paspalum"|sepnames$Genus=="Anthaenantia"|sepnames$Genus=="Arthropoginae"|sepnames$Genus=="Anthephorinae"|sepnames$Genus=="Echinochloa"|sepnames$Genus=="Neurachne"|sepnames$Genus=="Paraneurachne"|sepnames$Genus=="Melinidinae"|sepnames$Genus=="Alloteropsis"|sepnames$Genus=="Cenchrinae"|sepnames$Genus=="Paninicae", "C4" , "C3")
+BIENC4 <- subset(BIENGRASS, Type == "C4")
+BIENC3 <- subset(BIENGRASS, Type == "C3")
+
+#Initial WorldClim Data Code
+worldclim <- getData('worldclim', var='bio', res=10)
+WC_layers <- do.call(brick, lapply(list.files(path = "wc10/", pattern = "*.bil$", full.names = TRUE), raster))
+WorldClim <- do.call(crop, c(WC_layers,extent(-175,-22,-56,74)))
+C4crs <- crs(C4RichnessRaster)
+WorldClim <- projectRaster(WorldClim, crs = C4crs)
+WorldClim <- resample(WorldClim, C4RichnessRaster)
+plot(WorldClim$bio1)
+
+#C4 Map
+BIENblank <-raster("BIENGridDemo/Data/blank_100km_raster.tif")
+summary(getValues(BIENblank)) #see that it is all NA
+C4RichnessRaster <- setValues(BIENblank, BIENRichJoin$C4Richness)
+C4RichnessVector<-BIENj.1$C4Richness
+C4RichnessVector[which(C4RichnessVector==0)]=NA
+C4RichnessRaster <- setValues(BIENblank, C4RichnessVector)
+plot(C4RichnessRaster)
+plot(getValues(WorldClim$bio1/10), getValues(C4RichnessRaster))
+
+#C3 Map 
+BIENblank <-raster("Data/blank_100km_raster.tif")
+summary(getValues(BIENblank)) #see that it is all NA
+C3RichnessRaster <- setValues(BIENblank, BIENj.1$C3Richness)
+C3RichnessVector<-BIENRichJoin$C3Richness
+C3RichnessVector[which(C3RichnessVector==0)]=NA
+C3RichnessRaster <- setValues(BIENblank, C3RichnessVector)
+plot(C3RichnessRaster)
+plot(getValues(WorldClim$bio1/10), getValues(C3RichnessRaster))
+
+#Total Map
+BIENblank <-raster("BIENGridDemo/Data/blank_100km_raster.tif")
+summary(getValues(BIENblank)) #see that it is all NA
+SumRichnessRaster <- setValues(BIENblank, BIENRichJoin$RichSum)
+SumRichnessVector<-BIENRichJoin$RichSum
+SumRichnessVector[which(SumRichnessVector==0)]=NA
+SumRichnessRaster <- setValues(BIENblank, SumRichnessVector)
+plot(SumRichnessRaster)
+plot(getValues(WorldClim$bio1/10), getValues(C4RichnessRaster))
+sum(BIENRichJoin$C3Richness)
+sum(BIENRichJoin$RichSum)
+
+##ANALYSIS
+#Ratio of C3/C4
+BIENRichJoin$RatioBoth <- BIENRichJoin[,6]/BIENRichJoin[,5]
+
+#C4 genera not present in BIEN
+c4pres <- is.element(C4$Genus, BIENC4$Genus)
+C4$BIENPres <- c4pres
+C4notpres <- subset(C4, BIENPres == FALSE)
+
+#C3 genera not present in BIEN
+c3pres <- is.element(C3$Genus, BIENC3$Genus)
+C3$BIENPres <- c3pres
+C3notpres <- subset(C3, BIENPres == FALSE)
+
+all.not.pres <- bind_rows(C3notpres, C4notpres) #all genera not in BIEN (c3 and c4)
+genpres <- is.element(genall$Genus, all.not.pres$Genus) #other data, which are not present? FALSE = present, TRUE = not present 
+genall$pres <- genpres #TRUE = not in BIEN, FALSE = in BIEN
+ngenall <- subset(genall, pres == TRUE) #ngenall is all of the grasses from the total grass list (not the BIEN list),  that are not in the BIEN list (TRUE = not present)
+synotpres <- subset(ngenall, syn. == "syn") #all of the grasses not in BIEN that have syns 
+notpresyns <- unique(synotpres$syn.with) #the names of the syns of grasses that aren't in BIEN  
+notpresyns #names of genera that are in BIEN (syns are not)
+
+BIENsyn <- is.element(BIENGRASS$Genus, notpresyns) #is the syn present? TRUE = yes, FALSE = no
+BIENGRASS$synpres <- BIENsyn #TRUE = this is a syn of a grass that isn't in BIEN, FALSE = this is not a syn of a grass that isn't in BIEN
+syn.names <- subset(BIENGRASS, synpres == TRUE) #these are all of the syns in BIEN of grasses that aren't in BIEN (the og grasses should be removed from teh all.not.pres list)
+BIENsyn.names <- unique(syn.names$Genus) #this is a list of each grass that has syns that aren't in BIEN
+BIENsyn.names #BIEN names of genera that are not represented -- these are in BIEN, but their syns are not, so their syns have to be taken out of the allnotrep list  
+
+synotpres$inbien <- is.element(synotpres$syn.with, BIENsyn.names) #TRUE = syn name is in BIEN
+removeanp <- subset(synotpres, inbien == TRUE) #syn is present in BIEN, should remove from all.not.pres
+all.not.pres$remove <- is.element(all.not.pres$Genus, removeanp$Genus) #if remove == it should be removed and it is 
+fin.all.not.pres <- subset(all.not.pres, remove == FALSE) #this is a list of all of the grasses that aren't in BIEN and don't have syns in BIEN 
+allgrass$InB <- is.element(allgrass$Genus, fin.all.not.pres$Genus)
+allgrass$InBIEN <- ifelse(allgrass$InB == FALSE, "Yes", "No")
+allgrass$InB <- NULL
+BIENGRASS$Grass <- NULL
+BIENGRASS$synpres <- NULL 
+
+
+
+##CLIMATE VARIABLES
+#Average Annual Temperature (1970 - 2000)
+# Plot Bio1 (mean annual temperature) divide by 10 because Worldclim stores integer T*10
+WC_layers <- do.call(brick, lapply(list.files(path = "wc10/", pattern = "*.bil$", full.names = TRUE), raster))
+WorldClim <- do.call(crop, c(WC_layers,extent(-175,-22,-56,74)))
+C4crs <- crs(C4RichnessRaster)
+WorldClim <- projectRaster(WorldClim, crs = C4crs)
+WorldClim <- resample(WorldClim, C4RichnessRaster)
+plot(WorldClim$bio1)
+plot(getValues(WorldClim$bio1/10), getValues(C4RichnessRaster))
+plot(getValues(WorldClim$bio1/10), getValues(C3RichnessRaster))
+
+xyplot(getValues(WorldClim$bio12)~getValues(WorldClim$bio1/10), type="smooth", xlab="Mean Annual Temperature (Degrees Celcius)", ylab="Mean Annual Precipitation (mm)")
+tempre <- lm(getValues(WorldClim$bio12)~getValues(WorldClim$bio1/10))
+anova(tempre)
+df <- data.frame(getValues(WorldClim$bio12))
+nrow(df)
+
+#All grass richness raster 
+BIENblank <-raster("BIENGridDemo/Data/blank_100km_raster.tif")
+summary(getValues(BIENblank)) #see that it is all NA
+RichnessRaster <- setValues(BIENblank, ALLRichness$Percentage)
+RichnessVector<-C4Richness$Percentage
+RichnessVector[which(RichnessVector==0)]=NA
+RichnessRaster <- setValues(BIENblank, RichnessVector)
+plot(RichnessRaster)
+
+#Bio1 Mean Annual Temp -- divide by 10
+df1 <- data.frame(bio=getValues(WorldClim$bio1/10), CellID = as.character(1:15038))
+bio1df <- full_join(df1, ALLRichness, by= "CellID")
+xyplot(bio1df$Percentage ~ bio1df$bio, groups=bio1df$Type, auto.key=TRUE, na.rm=TRUE, lwd=2, xlab = "Mean Annual Temperature (Degrees Celcius)", ylab="Richness (Percentage of Total)", type = "smooth")
+lmbio1 <- lm(Percentage ~ bio*Type, data = bio1df)
+summary(lmbio1)
+anova(lmbio1)
+#INTERPRETING ANCOVA#
+#bio:Type = < 2e-16 ===> effect of covariate(mean an temp) depends on categorical predictor (type)
+###regression slopes vary across types
+#Type = 0.08902 ===> percentage richness does not systematically vary across types 
+#bio = < 2e-16 ===> richness percentage does appear to decrease with mean annual temperature across all types 
+#REGRESSION EQUATIONS FOR EACH TYPE#
+#C3 -> Percentage C3 = 1.563e-02 + 4.864e-04*bio
+#C4 -> Percentage C4 = 7.128e.03 + 1.2199e-03*bio 
+sd(bio1df$Percentage, na.rm=TRUE)
+
+#Bio12 Mean annual precip*
+plot(WorldClim$bio12)
+plot(getValues(WorldClim$bio12), getValues(C4RichnessRaster))
+plot(getValues(WorldClim$bio12), getValues(C3RichnessRaster))
+df12 <- data.frame(bio=getValues(WorldClim$bio12), CellID = as.character(1:15038))
+bio12df <- full_join(df12, ALLRichness, by= "CellID")
+xyplot(bio12df$Percentage ~ bio12df$bio, groups=bio12df$Type, auto.key=TRUE, na.rm=TRUE, lwd=2, xlab="Mean Annual Precipitation (mm)", ylab="Richness (Percentage of Total)")
+lmbio12 <- lm(Percentage ~ bio*Type, data = bio12df)
+summary(lmbio12)
+anova(lmbio12)
+#INTERPRETING ANCOVA#
+#bio:Type = < 2e-16 ===> effect of covariate(mean an precip) depends on categorical predictor (type)
+###regression slopes vary across types
+#Type = 0.01774 ===> percentage richness varies systematically across types 
+#bio = < 2e-16 ===> richness percentage does appear to decrease with mean annual temperature across all types 
+#REGRESSION EQUATIONS FOR EACH TYPE#
+#C3 -> Percentage C3 = 1.820e-02 + 3.038e-05*bio
+#C4 -> Percentage C4 = 9.601e-03 + 1.1757e-04*bio 
+sd(bio1df$Percentage, na.rm=TRUE)
+
+#Bio18 Warmest Quarter Precip* 
+plot(WorldClim$bio18)
+plot(getValues(WorldClim$bio18), getValues(C4RichnessRaster))
+plot(getValues(WorldClim$bio18), getValues(C3RichnessRaster))
+#xyplot(ALLRichness$Percentage ~ getValues(WorldClim$bio18/10), groups=ALLRichness$Type, auto.key = TRUE)
+df18 <- data.frame(bio=getValues(WorldClim$bio18), CellID = as.character(1:15038))
+bio18df <- full_join(df18, ALLRichness, by= "CellID")
+xyplot(bio18df$Percentage ~ bio18df$bio, groups=bio18df$Type, auto.key=TRUE, na.rm=TRUE, lwd=2, xlab="Warmest Quarter Precipitation (mm)", ylab="Richness (Percentage of Total)")
+lmbio18 <- lm(Percentage ~ bio*Type, data = bio18df)
+summary(lmbio18)
+anova(lmbio18)
+#INTERPRETING ANCOVA#
+#bio:Type = < 2e-16 ===> effect of covariate(mean an precip) depends on categorical predictor (type)
+###regression slopes vary across types
+#Type = 0.01629 ===> percentage richness varies systematically across types 
+#bio = < 2e-16 ===> richness percentage does appear to decrease with mean annual temperature across all types 
+#REGRESSION EQUATIONS FOR EACH TYPE#
+#C3 -> Percentage C3 = 1.699e-02 + 1.646e-04*bio
+#C4 -> Percentage C4 = 7.902e-03 + 5.279e-04*bio 
+
+#Bio17 Driest Q Precip*
+plot(WorldClim$bio17)
+plot(getValues(WorldClim$bio17), getValues(C4RichnessRaster))
+plot(getValues(WorldClim$bio17), getValues(C3RichnessRaster))
+df17 <- data.frame(bio=getValues(WorldClim$bio17), CellID = as.character(1:15038))
+bio17df <- full_join(df17, ALLRichness, by= "CellID")
+xyplot(bio17df$Percentage ~ bio17df$bio, groups=bio17df$Type, auto.key=TRUE, na.rm=TRUE, lwd=2, xlab="Driest Quarter Precipitation (mm)", ylab="Richness (Percentage of Total)")
+lmbio17 <- lm(Percentage ~ bio*Type, data = bio17df)
+summary(lmbio17)
+anova(lmbio17)
+sd(lmbio17, na.rm=TRUE)
+#INTERPRETING ANCOVA#
+#bio:Type = 1.652e-05 ===> effect of covariate(mean an precip) depends on categorical predictor (type)
+###regression slopes vary across types
+#Type = 0.0138418 ===> percentage richness varies systematically across types 
+#bio = 0.0006707 ===> richness percentage does appear to decrease with mean annual temperature across all types 
+#REGRESSION EQUATIONS FOR EACH TYPE#
+#C3 -> Percentage C3 = 2.129e-02 + 1.344e-05*bio
+#C4 -> Percentage C4 = 2.10342e-02 + 1.1018e-04*bio 
+
+
+##DATA INFO##
+##Species
+C4Sn <- nrow(table(BIENC4$Speciesname))
+C4Sn
+C3Sn <- nrow(table(BIENC3$Speciesname))
+C3Sn
+Sn <- sum(C3Sn, C4Sn)
+Sn
+
+##Genera
+Gn <- nrow(table(BIENGRASS$Genus))
+Gn
+C4Gn <- nrow(table(BIENC4$Genus))
+C4Gn
+C3Gn <- nrow(table(BIENC3$Genus))
+C3Gn
+
+#Observations
+nC3 <- sum(C3Richness$Richness)
+nC3
+nC4 <- sum(C4Richness$Richness)
+nC4
+
+#Number Cells --> N for plots 
+nrow(C3Richness)
+nrow(C4Richness)
