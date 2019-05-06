@@ -1,5 +1,30 @@
 #BIEN GRASS SUBSETTING
 #5/6/2019
+
+#Packages
+require(maps)
+require(maptools)
+require(raster)
+require(dismo)
+require(sp)
+require(rgdal)
+require(mapdata)
+require(mapproj)
+require(datasets)
+require(grDevices)
+require(methods)
+require(stats)
+require(tidyr)
+require(utils)
+require(readr)
+require(dplyr)
+
+#Loading Data
+BIENblank <-raster("Data/blank_100km_raster.tif")
+# Check that it has no values
+summary(getValues(BIENblank)) #see that it is all NA
+BIENrichness <-read.csv("Data/Richness_by_100km_Cell.csv")
+
 #Richness Data Separation
 summary(BIENC4$CellID)
 C4Richness <- data.frame(table(BIENC4$CellID))
