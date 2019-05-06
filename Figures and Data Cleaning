@@ -165,12 +165,6 @@ plot(WorldClim$bio1)
 plot(getValues(WorldClim$bio1/10), getValues(C4RichnessRaster))
 plot(getValues(WorldClim$bio1/10), getValues(C3RichnessRaster))
 
-xyplot(getValues(WorldClim$bio12)~getValues(WorldClim$bio1/10), type="smooth", xlab="Mean Annual Temperature (Degrees Celcius)", ylab="Mean Annual Precipitation (mm)")
-tempre <- lm(getValues(WorldClim$bio12)~getValues(WorldClim$bio1/10))
-anova(tempre)
-df <- data.frame(getValues(WorldClim$bio12))
-nrow(df)
-
 #All grass richness raster 
 BIENblank <-raster("BIENGridDemo/Data/blank_100km_raster.tif")
 summary(getValues(BIENblank)) #see that it is all NA
@@ -180,7 +174,7 @@ RichnessVector[which(RichnessVector==0)]=NA
 RichnessRaster <- setValues(BIENblank, RichnessVector)
 plot(RichnessRaster)
 
-#Bio1 Mean Annual Temp -- divide by 10
+#Bio1 Mean Annual Temp
 df1 <- data.frame(bio=getValues(WorldClim$bio1/10), CellID = as.character(1:15038))
 bio1df <- full_join(df1, ALLRichness, by= "CellID")
 xyplot(bio1df$Percentage ~ bio1df$bio, groups=bio1df$Type, auto.key=TRUE, na.rm=TRUE, lwd=2, xlab = "Mean Annual Temperature (Degrees Celcius)", ylab="Richness (Percentage of Total)", type = "smooth")
@@ -257,6 +251,12 @@ sd(lmbio17, na.rm=TRUE)
 #C3 -> Percentage C3 = 2.129e-02 + 1.344e-05*bio
 #C4 -> Percentage C4 = 2.10342e-02 + 1.1018e-04*bio 
 
+#Tempreture/Precipitation Correlation
+xyplot(getValues(WorldClim$bio12)~getValues(WorldClim$bio1/10), type="smooth", xlab="Mean Annual Temperature (Degrees Celcius)", ylab="Mean Annual Precipitation (mm)")
+tempre <- lm(getValues(WorldClim$bio12)~getValues(WorldClim$bio1/10))
+anova(tempre)
+df <- data.frame(getValues(WorldClim$bio12))
+nrow(df)
 
 ##DATA INFO##
 ##Species
